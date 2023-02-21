@@ -34,6 +34,7 @@ from torch import nn
 from torch.cuda.amp import autocast
 from nnunet.training.learning_rate.poly_lr import poly_lr
 from batchgenerators.utilities.file_and_folder_operations import *
+from nnunet.utilities.neptune_config import config_run
 
 
 class nnUNetTrainerV2(nnUNetTrainer):
@@ -45,12 +46,13 @@ class nnUNetTrainerV2(nnUNetTrainer):
                  unpack_data=True, deterministic=True, fp16=False):
         super().__init__(plans_file, fold, output_folder, dataset_directory, batch_dice, stage, unpack_data,
                          deterministic, fp16)
-        self.max_num_epochs = 1000
+        self.max_num_epochs = 2000
         self.initial_lr = 1e-2
         self.deep_supervision_scales = None
         self.ds_loss_weights = None
 
         self.pin_memory = True
+        self.id = None
 
     def initialize(self, training=True, force_load_plans=False):
         """
@@ -62,6 +64,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
         :param force_load_plans:
         :return:
         """
+        self.run = config_run(self.id)
         if not self.was_initialized:
             maybe_mkdir_p(self.output_folder)
 
@@ -146,6 +149,7 @@ class nnUNetTrainerV2(nnUNetTrainer):
             conv_op = nn.Conv2d
             dropout_op = nn.Dropout2d
             norm_op = nn.InstanceNorm2d
+            self.run["sys/name"] = "2D nnUNet"
 
         norm_op_kwargs = {'eps': 1e-5, 'affine': True}
         dropout_op_kwargs = {'p': 0, 'inplace': True}
@@ -166,6 +170,9 @@ class nnUNetTrainerV2(nnUNetTrainer):
         self.optimizer = torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
                                          momentum=0.99, nesterov=True)
         self.lr_scheduler = None
+        self.run["parameters/optimizer"] = "sgd"
+        self.run["learning_rate"] = self.initial_lr
+
 
     def run_online_evaluation(self, output, target):
         """
@@ -308,9 +315,15 @@ class nnUNetTrainerV2(nnUNetTrainer):
                 self.print_to_log_file("The split file contains %d splits." % len(splits))
 
             self.print_to_log_file("Desired fold for training: %d" % self.fold)
+            self.run["fold"] = self.fold
             if self.fold < len(splits):
-                tr_keys = splits[self.fold]['train']
-                val_keys = splits[self.fold]['val']
+                if len(splits) == 5:
+                    tr_keys = splits[self.fold]['train']
+                    val_keys = splits[self.fold]['val']
+                else:
+                    # using custom split
+                    tr_keys = splits['train']
+                    val_keys = splits['val']
                 self.print_to_log_file("This split has %d training and %d validation cases."
                                        % (len(tr_keys), len(val_keys)))
             else:
@@ -440,3 +453,11 @@ class nnUNetTrainerV2(nnUNetTrainer):
         ret = super().run_training()
         self.network.do_ds = ds
         return ret
+
+
+    def set_id(self, id):
+        self.id = id
+
+
+    def stop_neptune(self):
+        self.run.stop()

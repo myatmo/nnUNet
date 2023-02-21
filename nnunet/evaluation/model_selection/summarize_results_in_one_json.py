@@ -41,6 +41,8 @@ def summarize(tasks, models=('2d', '3d_lowres', '3d_fullres', '3d_cascade_fullre
             out_dir_task = join(network_training_output_dir, model, task_name)
 
             model_trainers = subdirs(out_dir_task, join=False)
+            # testing
+            model_trainers = model_trainers[2]
             for trainer in model_trainers:
                 if trainer.startswith("fold"):
                     continue

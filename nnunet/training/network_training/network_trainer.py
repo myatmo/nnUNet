@@ -56,6 +56,7 @@ class NetworkTrainer(object):
         - validate
         - predict_test_case
         """
+        self.run = None
         self.fp16 = fp16
         self.amp_grad_scaler = None
 
@@ -170,8 +171,13 @@ class NetworkTrainer(object):
         if self.fold == "all":
             tr_keys = val_keys = list(self.dataset.keys())
         else:
-            tr_keys = splits[self.fold]['train']
-            val_keys = splits[self.fold]['val']
+            if len(splits) == 5:
+                tr_keys = splits[self.fold]['train']
+                val_keys = splits[self.fold]['val']
+            else:
+                # using custom split
+                tr_keys = splits['train']
+                val_keys = splits['val']
 
         tr_keys.sort()
         val_keys.sort()
@@ -458,6 +464,7 @@ class NetworkTrainer(object):
 
             self.all_tr_losses.append(np.mean(train_losses_epoch))
             self.print_to_log_file("train loss : %.4f" % self.all_tr_losses[-1])
+            self.run["train/loss"].append(self.all_tr_losses[-1])
 
             with torch.no_grad():
                 # validation with train=False
@@ -468,6 +475,7 @@ class NetworkTrainer(object):
                     val_losses.append(l)
                 self.all_val_losses.append(np.mean(val_losses))
                 self.print_to_log_file("validation loss: %.4f" % self.all_val_losses[-1])
+                self.run["train/val_loss"].append(self.all_val_losses[-1])
 
                 if self.also_val_in_tr_mode:
                     self.network.train()
@@ -478,6 +486,7 @@ class NetworkTrainer(object):
                         val_losses.append(l)
                     self.all_val_losses_tr_mode.append(np.mean(val_losses))
                     self.print_to_log_file("validation loss (train=True): %.4f" % self.all_val_losses_tr_mode[-1])
+                    self.run["train/val_loss(train=True)"].append(self.all_val_losses_tr_mode[-1])
 
             self.update_train_loss_MA()  # needed for lr scheduler and stopping of training
 

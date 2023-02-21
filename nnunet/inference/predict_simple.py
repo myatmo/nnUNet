@@ -21,6 +21,8 @@ from nnunet.paths import default_plans_identifier, network_training_output_dir, 
 from batchgenerators.utilities.file_and_folder_operations import join, isdir, save_json
 from nnunet.utilities.task_name_id_conversion import convert_id_to_task_name
 from time import time
+from nnunet.evaluation.model_selection.figure_out_what_to_submit import get_mean_foreground_dice
+from nnunet.utilities.neptune_config import config_run
 
 
 def main():
@@ -123,12 +125,14 @@ def main():
                              'the required vram. If you want to disable mixed precision you can set this flag. Note '
                              'that this is not recommended (mixed precision is ~2x faster!)')
 
+    run = config_run()
     args = parser.parse_args()
     input_folder = args.input_folder
     output_folder = args.output_folder
     part_id = args.part_id
     num_parts = args.num_parts
     folds = args.folds
+    run["fold"] = folds
     save_npz = args.save_npz
     lowres_segmentations = args.lowres_segmentations
     num_threads_preprocessing = args.num_threads_preprocessing
@@ -223,6 +227,14 @@ def main():
                         step_size=step_size, checkpoint_name=args.chk)
     end = time()
     save_json(end - st, join(output_folder, 'prediction_time.txt'))
+
+    
+    # obtain mean foreground dice
+    #summary_file = join(cv_niftis_folder, "summary.json")
+    #results = get_mean_foreground_dice(summary_file)
+    
+    # adding dice score for the foreground on neptune; for binary segmentation
+    #run["test/accuracy"] = results
 
 
 if __name__ == "__main__":

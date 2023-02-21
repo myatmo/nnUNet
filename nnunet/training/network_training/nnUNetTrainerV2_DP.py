@@ -28,6 +28,7 @@ from nnunet.utilities.nd_softmax import softmax_helper
 from torch import nn
 from torch.cuda.amp import autocast
 from torch.nn.parallel.data_parallel import DataParallel
+from nnunet.utilities.neptune_config import config_run
 
 
 class nnUNetTrainerV2_DP(nnUNetTrainerV2):
@@ -68,6 +69,7 @@ class nnUNetTrainerV2_DP(nnUNetTrainerV2):
         :param force_load_plans:
         :return:
         """
+        self.run = config_run(self.id)
         if not self.was_initialized:
             maybe_mkdir_p(self.output_folder)
 
@@ -134,6 +136,7 @@ class nnUNetTrainerV2_DP(nnUNetTrainerV2):
             conv_op = nn.Conv2d
             dropout_op = nn.Dropout2d
             norm_op = nn.InstanceNorm2d
+            self.run["sys/name"] = "2D nnUNet"
 
         norm_op_kwargs = {'eps': 1e-5, 'affine': True}
         dropout_op_kwargs = {'p': 0, 'inplace': True}
@@ -153,6 +156,8 @@ class nnUNetTrainerV2_DP(nnUNetTrainerV2):
         self.optimizer = torch.optim.SGD(self.network.parameters(), self.initial_lr, weight_decay=self.weight_decay,
                                          momentum=0.99, nesterov=True)
         self.lr_scheduler = None
+        self.run["parameters/optimizer"] = "sgd"
+        self.run["learning_rate"] = self.initial_lr
 
     def run_training(self):
         self.maybe_update_lr(self.epoch)

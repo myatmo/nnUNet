@@ -113,3 +113,7 @@ ENV/
 
 *.model
 
+/output
+*.output
+*.error
+*.sbatch

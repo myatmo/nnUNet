@@ -32,6 +32,7 @@ def main():
     parser.add_argument("fold", help='0, 1, ..., 5 or \'all\'')
     parser.add_argument("-val", "--validation_only", help="use this if you want to only run the validation",
                         action="store_true")
+    parser.add_argument("--id", required=False, type=str, help="if continue training, please provide the neptune id")
     parser.add_argument("-c", "--continue_training", help="use this if you want to continue a training",
                         action="store_true")
     parser.add_argument("-p", help="plans identifier. Only change this if you created a custom experiment planner",
@@ -114,6 +115,8 @@ def main():
     # interp_order_z = args.interp_order_z
     # force_separate_z = args.force_separate_z
 
+    id = args.id
+
     if not task.startswith("Task"):
         task_id = int(task)
         task = convert_id_to_task_name(task_id)
@@ -157,6 +160,7 @@ def main():
         trainer.save_best_checkpoint = False  # whether or not to save the best checkpoint according to self.best_val_eval_criterion_MA
         trainer.save_final_checkpoint = False  # whether or not to save the final checkpoint
 
+    trainer.set_id(id)
     trainer.initialize(not validation_only)
 
     if find_lr:
@@ -166,6 +170,7 @@ def main():
             if args.continue_training:
                 # -c was set, continue a previous training and ignore pretrained weights
                 trainer.load_latest_checkpoint()
+                assert id is not None, "Make sure to provide the correct neptune id"
             elif (not args.continue_training) and (args.pretrained_weights is not None):
                 # we start a new training. If pretrained_weights are set, use them
                 load_pretrained_weights(trainer.network, args.pretrained_weights)
@@ -189,6 +194,7 @@ def main():
             print("predicting segmentations for the next stage of the cascade")
             predict_next_stage(trainer, join(dataset_directory, trainer.plans['data_identifier'] + "_stage%d" % 1))
 
+    trainer.stop_neptune()
 
 if __name__ == "__main__":
     main()
