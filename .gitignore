@@ -117,3 +117,7 @@ ENV/
 *.output
 *.error
 *.sbatch
+
+# neptune files
+.neptune/*
+neptune_test.py
